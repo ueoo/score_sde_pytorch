@@ -8,16 +8,15 @@
 
 #include <ATen/ATen.h>
 #include <ATen/AccumulateType.h>
-#include <ATen/cuda/CUDAContext.h>
 #include <ATen/cuda/CUDAApplyUtils.cuh>
+#include <ATen/cuda/CUDAContext.h>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-
 template <typename scalar_t>
-static __global__ void fused_bias_act_kernel(scalar_t* out, const scalar_t* p_x, const scalar_t* p_b, const scalar_t* p_ref,
-    int act, int grad, scalar_t alpha, scalar_t scale, int loop_x, int size_x, int step_b, int size_b, int use_bias, int use_ref) {
+static __global__ void fused_bias_act_kernel(scalar_t *out, const scalar_t *p_x, const scalar_t *p_b, const scalar_t *p_ref,
+                                             int act, int grad, scalar_t alpha, scalar_t scale, int loop_x, int size_x, int step_b, int size_b, int use_bias, int use_ref) {
     int xi = blockIdx.x * loop_x * blockDim.x + threadIdx.x;
 
     scalar_t zero = 0.0;
@@ -34,23 +33,34 @@ static __global__ void fused_bias_act_kernel(scalar_t* out, const scalar_t* p_x,
         scalar_t y;
 
         switch (act * 10 + grad) {
-            default:
-            case 10: y = x; break;
-            case 11: y = x; break;
-            case 12: y = 0.0; break;
+        default:
+        case 10:
+            y = x;
+            break;
+        case 11:
+            y = x;
+            break;
+        case 12:
+            y = 0.0;
+            break;
 
-            case 30: y = (x > 0.0) ? x : x * alpha; break;
-            case 31: y = (ref > 0.0) ? x : x * alpha; break;
-            case 32: y = 0.0; break;
+        case 30:
+            y = (x > 0.0) ? x : x * alpha;
+            break;
+        case 31:
+            y = (ref > 0.0) ? x : x * alpha;
+            break;
+        case 32:
+            y = 0.0;
+            break;
         }
 
         out[xi] = y * scale;
     }
 }
 
-
-torch::Tensor fused_bias_act_op(const torch::Tensor& input, const torch::Tensor& bias, const torch::Tensor& refer,
-    int act, int grad, float alpha, float scale) {
+torch::Tensor fused_bias_act_op(const torch::Tensor &input, const torch::Tensor &bias, const torch::Tensor &refer,
+                                int act, int grad, float alpha, float scale) {
     int curDevice = -1;
     cudaGetDevice(&curDevice);
     cudaStream_t stream = at::cuda::getCurrentCUDAStream(curDevice);
@@ -91,8 +101,7 @@ torch::Tensor fused_bias_act_op(const torch::Tensor& input, const torch::Tensor&
             step_b,
             size_b,
             use_bias,
-            use_ref
-        );
+            use_ref);
     });
 
     return y;
